@@ -4,54 +4,98 @@ on:
   push:
     branches:
       - master
+
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build MeliVPN ARM64
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+
+      - name: Checkout Source
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
-      - name: Setup Android
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
+
+      - name: Install Android NDK
+        run: |
+          echo "y" | sdkmanager \
+            --channel=0 \
+            --install "ndk;30.0.16248370"
+
+          echo "NDK_HOME=$ANDROID_HOME/ndk/30.0.16248370" >> $GITHUB_ENV
+
+          sed -i '10i\
+              ndkVersion = "30.0.16248370"' \
+              V2rayNG/app/build.gradle.kts
+
+      - name: Restore HEV Cache
+        id: hev-cache
+        uses: actions/cache@v4
+        with:
+          path: libs
+          key: hev-${{ runner.os }}-${{ hashFiles('.git/modules/hev-socks5-tunnel/HEAD') }}-${{ hashFiles('compile-hevtun.sh') }}
+
+      - name: Build HEV
+        if: steps.hev-cache.outputs.cache-hit != 'true'
+        run: |
+          bash compile-hevtun.sh
+
+      - name: Copy HEV Libraries
+        run: |
+          cp -r libs V2rayNG/app/
+
+      - name: Get Xray Library Version
+        run: |
+          cd AndroidLibXrayLite
+
+          CURRENT_TAG=$(git describe --tags --abbrev=0)
+
+          echo "CURRENT_TAG=$CURRENT_TAG" >> $GITHUB_ENV
+
+          echo "Xray version: $CURRENT_TAG"
+
+      - name: Download libv2ray
+        uses: robinraju/release-downloader@v1.13
+        with:
+          repository: '2dust/AndroidLibXrayLite'
+          tag: ${{ env.CURRENT_TAG }}
+          fileName: 'libv2ray.aar'
+          out-file-path: V2rayNG/app/libs/
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
-
-      - name: Install Android SDK
-        run: |
-          sdkmanager "platforms;android-37"
-          sdkmanager "build-tools;37.0.0"
-          sdkmanager "ndk;30.0.16248370"
-
-      - name: Build HEV
-        run: |
-          chmod +x V2rayNG/compile-hevtun.sh
-          cd V2rayNG
-          ./compile-hevtun.sh
-
-      - name: Build libv2ray
-        run: |
-          git submodule update --init --recursive
-          mkdir -p V2rayNG/app/libs
-          # Keep the AAR generation step from the original workflow here.
+          java-version: '21'
 
       - name: Build ARM64 APK
         run: |
           cd V2rayNG
-          chmod +x gradlew
-          ./gradlew :app:assemblePlaystoreDebug -PABI_FILTERS=arm64-v8a --stacktrace
 
-      - name: Upload ARM64 APK
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+          chmod +x gradlew
+
+          ./gradlew :app:assemblePlaystoreDebug \
+            -PABI_FILTERS=arm64-v8a \
+            --stacktrace
+
+      - name: Upload MeliVPN ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MeliVPN-ARM64
+          name: MeliVPN-ARM64-APK
           path: V2rayNG/app/build/outputs/apk/playstore/debug/*arm64-v8a*.apk
           if-no-files-found: error
+          compression-level: 0
