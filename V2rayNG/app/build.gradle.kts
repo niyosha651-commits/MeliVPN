@@ -6,21 +6,23 @@ plugins {
 }
 
 android {
-    namespace = "com.v2ray.ang"
+    namespace = "com.melivpn.amir"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.v2ray.ang"
+        applicationId = "com.melivpn.amir"
         minSdk = 24
         targetSdk = 37
         versionCode = 761
         versionName = "0.1.1-alpha"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
+
         splits {
             abi {
                 isEnable = true
                 reset()
+
                 if (!abiFilterList.isNullOrEmpty()) {
                     include(*abiFilterList.toTypedArray())
                 } else {
@@ -31,6 +33,7 @@ android {
                         "x86"
                     )
                 }
+
                 isUniversalApk = abiFilterList.isNullOrEmpty()
             }
         }
@@ -41,6 +44,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -49,12 +53,14 @@ android {
     }
 
     flavorDimensions.add("distribution")
+
     productFlavors {
         create("fdroid") {
             dimension = "distribution"
             applicationIdSuffix = ".fdroid"
             buildConfigField("String", "DISTRIBUTION", "\"F-Droid\"")
         }
+
         create("playstore") {
             dimension = "distribution"
             buildConfigField("String", "DISTRIBUTION", "\"Play Store\"")
@@ -75,47 +81,71 @@ android {
 
     kotlin {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            jvmTarget.set(
+                org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+            )
         }
     }
 
     applicationVariants.all {
         val variant = this
         val isFdroid = variant.productFlavors.any { it.name == "fdroid" }
+
         if (isFdroid) {
-            val versionCodes =
-                mapOf(
-                    "armeabi-v7a" to 2, "arm64-v8a" to 1, "x86" to 4, "x86_64" to 3, "universal" to 0
-                )
+
+            val versionCodes = mapOf(
+                "armeabi-v7a" to 2,
+                "arm64-v8a" to 1,
+                "x86" to 4,
+                "x86_64" to 3,
+                "universal" to 0
+            )
 
             variant.outputs
-                .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
+                .map {
+                    it as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+                }
                 .forEach { output ->
+
                     val abi = output.getFilter("ABI") ?: "universal"
-                    output.outputFileName = "v2rayNG_${variant.versionName}-fdroid_${abi}.apk"
+
+                    output.outputFileName =
+                        "MeliVPN_${variant.versionName}-fdroid_${abi}.apk"
+
                     if (versionCodes.containsKey(abi)) {
                         output.versionCodeOverride =
-                            (100 * variant.versionCode + versionCodes[abi]!!).plus(5000000)
+                            (100 * variant.versionCode + versionCodes[abi]!!)
+                                .plus(5000000)
                     } else {
                         return@forEach
                     }
                 }
+
         } else {
-            val versionCodes =
-                mapOf("armeabi-v7a" to 4, "arm64-v8a" to 4, "x86" to 4, "x86_64" to 4, "universal" to 4)
+
+            val versionCodes = mapOf(
+                "armeabi-v7a" to 4,
+                "arm64-v8a" to 4,
+                "x86" to 4,
+                "x86_64" to 4,
+                "universal" to 4
+            )
 
             variant.outputs
-                .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
+                .map {
+                    it as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+                }
                 .forEach { output ->
-                    val abi = if (output.getFilter("ABI") != null)
-                        output.getFilter("ABI")
-                    else
-                        "universal"
 
-                    output.outputFileName = "v2rayNG_${variant.versionName}_${abi}.apk"
+                    val abi = output.getFilter("ABI") ?: "universal"
+
+                    output.outputFileName =
+                        "MeliVPN_${variant.versionName}_${abi}.apk"
+
                     if (versionCodes.containsKey(abi)) {
                         output.versionCodeOverride =
-                            (1000000 * versionCodes[abi]!!).plus(variant.versionCode)
+                            (1000000 * versionCodes[abi]!!)
+                                .plus(variant.versionCode)
                     } else {
                         return@forEach
                     }
@@ -130,6 +160,7 @@ android {
 
     androidResources {
         generateLocaleConfig = true
+
         localeFilters += listOf(
             "en",
             "zh-rCN",
@@ -153,19 +184,26 @@ android {
     testOptions {
         unitTests.all {
             it.useJUnitPlatform()
-            // Treat Jupiter discovery warnings as failures: JUnit 4 failed on an invalid @Test
-            // method, such as one that returns a value, while Jupiter only warns and skips it.
-            // The key is @API(status = EXPERIMENTAL) in JUnit 6; after a JUnit upgrade, check
-            // that a temporary `@Test fun probe() = 1` still fails the unit test task.
-            it.systemProperty("junit.platform.discovery.issue.severity.critical", "WARNING")
+
+            it.systemProperty(
+                "junit.platform.discovery.issue.severity.critical",
+                "WARNING"
+            )
         }
     }
-
 }
 
 dependencies {
+
     // Core Libraries
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
+    implementation(
+        fileTree(
+            mapOf(
+                "dir" to "libs",
+                "include" to listOf("*.aar", "*.jar")
+            )
+        )
+    )
 
     // AndroidX Core Libraries
     implementation(libs.androidx.core.ktx)
@@ -194,31 +232,34 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
 
-    // QR Code: CameraX + ZXing
+    // QR Code
     implementation(libs.camerax.core)
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.compose)
-    implementation(libs.core) // zxing core
+    implementation(libs.core)
 
-    // AndroidX Lifecycle and Architecture Components
+    // AndroidX Lifecycle
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.runtime.ktx)
 
-    // Background Task Libraries
+    // Background Tasks
     implementation(libs.work.runtime.ktx)
     implementation(libs.work.multiprocess)
 
-    // Reorderable list
+    // Reorderable List
     implementation(libs.reorderable)
 
-    // Testing Libraries
+    // Testing
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
+
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
